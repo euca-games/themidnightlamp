@@ -8,6 +8,7 @@ RUN npm run build
 
 ## Stage 2: build backend (with embedded frontend)
 FROM golang:1.23-alpine AS backend
+RUN apk add --no-cache git
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
