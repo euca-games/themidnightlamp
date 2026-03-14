@@ -1,0 +1,15 @@
+# env
+.env
+
+# compiled binary
+server
+
+# frontend
+web/node_modules/
+web/dist/
+
+# Go build cache
+*.test
+
+# OS
+.DS_Store
