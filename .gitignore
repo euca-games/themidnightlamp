@@ -2,7 +2,7 @@
 .env
 
 # compiled binary
-server
+/server
 
 # frontend
 web/node_modules/

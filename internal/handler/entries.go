@@ -22,6 +22,20 @@ func NewEntriesHandler(s *store.Store) *EntriesHandler {
 	return &EntriesHandler{store: s}
 }
 
+func (h *EntriesHandler) ListByUser(w http.ResponseWriter, r *http.Request) {
+	u := auth.GetUser(r)
+	q := r.URL.Query()
+	entries, err := h.store.ListEntriesByUser(r.Context(), u.UserID, q.Get("type"), q.Get("status"))
+	if err != nil {
+		model.WriteError(w, model.ErrInternalServer)
+		return
+	}
+	if entries == nil {
+		entries = []store.EntryWithMedia{}
+	}
+	model.WriteJSON(w, http.StatusOK, entries)
+}
+
 func (h *EntriesHandler) ListByCollection(w http.ResponseWriter, r *http.Request) {
 	u := auth.GetUser(r)
 	collectionID := chi.URLParam(r, "id")

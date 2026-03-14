@@ -325,6 +325,44 @@ func (s *Store) ListEntriesByCollection(ctx context.Context, collectionID string
 	return entries, nil
 }
 
+func (s *Store) ListEntriesByUser(ctx context.Context, userID, mediaType, status string) ([]EntryWithMedia, error) {
+	var typeParam, statusParam *string
+	if mediaType != "" {
+		typeParam = &mediaType
+	}
+	if status != "" {
+		statusParam = &status
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT DISTINCT ON (mi.id)
+		   ce.id, ce.collection_id, ce.media_item_id, ce.rating, ce.status,
+		   ce.notes, ce.started_at, ce.completed_at, ce.created_at, ce.updated_at,
+		   mi.title, mi.type, mi.metadata
+		 FROM collection_entries ce
+		 JOIN media_items mi ON mi.id = ce.media_item_id
+		 JOIN collections c ON c.id = ce.collection_id
+		 WHERE c.user_id = $1
+		   AND ($2::text IS NULL OR mi.type::text = $2)
+		   AND ($3::text IS NULL OR ce.status::text = $3)
+		 ORDER BY mi.id, ce.updated_at DESC`,
+		userID, typeParam, statusParam,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []EntryWithMedia
+	for rows.Next() {
+		var e EntryWithMedia
+		if err := rows.Scan(&e.ID, &e.CollectionID, &e.MediaItemID, &e.Rating, &e.Status, &e.Notes, &e.StartedAt, &e.CompletedAt, &e.CreatedAt, &e.UpdatedAt, &e.Title, &e.Type, &e.Metadata); err != nil {
+			return nil, err
+		}
+		entries = append(entries, e)
+	}
+	return entries, nil
+}
+
 func (s *Store) UpdateEntry(ctx context.Context, id string, rating *float64, status string, notes *string, startedAt, completedAt *time.Time) (*Entry, error) {
 	var e Entry
 	err := s.pool.QueryRow(ctx,

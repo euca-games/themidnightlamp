@@ -6,11 +6,13 @@ import (
 )
 
 type Config struct {
-	DatabaseURL       string
-	JWTSecret         string
-	JWTRefreshSecret  string
-	Port              string
-	GoEnv             string
+	DatabaseURL        string
+	JWTSecret          string
+	JWTRefreshSecret   string
+	Port               string
+	GoEnv              string
+	IGDBClientID       string
+	IGDBClientSecret   string
 }
 
 func Load() (*Config, error) {
@@ -20,6 +22,8 @@ func Load() (*Config, error) {
 		JWTRefreshSecret: os.Getenv("JWT_REFRESH_SECRET"),
 		Port:             getEnvOrDefault("PORT", "8080"),
 		GoEnv:            getEnvOrDefault("GO_ENV", "development"),
+		IGDBClientID:     os.Getenv("IGDB_CLIENT_ID"),
+		IGDBClientSecret: os.Getenv("IGDB_CLIENT_SECRET"),
 	}
 
 	if cfg.DatabaseURL == "" {

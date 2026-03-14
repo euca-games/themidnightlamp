@@ -46,6 +46,14 @@ export interface EntryWithMedia extends Entry {
   metadata: Record<string, unknown>
 }
 
+export interface GameSearchResult {
+  igdb_id: number
+  title: string
+  cover_url: string
+  release_year: number
+  platforms: string[]
+}
+
 export interface PaginatedMedia {
   items: MediaItem[]
   total: number
