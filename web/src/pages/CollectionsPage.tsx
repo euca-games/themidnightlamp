@@ -17,11 +17,20 @@ export default function CollectionsPage() {
   const [name, setName] = useState('')
   const [type, setType] = useState<MediaType>('game')
   const [isPublic, setIsPublic] = useState(false)
+  const [removeTarget, setRemoveTarget] = useState<Collection | null>(null)
   const qc = useQueryClient()
 
   const { data: collections = [] } = useQuery<Collection[]>({
     queryKey: ['collections'],
     queryFn: () => api.get('/collections').then((r) => r.data),
+  })
+
+  const deleteCollection = useMutation({
+    mutationFn: (id: string) => api.delete(`/collections/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['collections'] })
+      setRemoveTarget(null)
+    },
   })
 
   const createCollection = useMutation({
@@ -95,18 +104,45 @@ export default function CollectionsPage() {
       ) : (
         <div className="space-y-2">
           {collections.map((c) => (
-            <Link
-              key={c.id}
-              to={`/collections/${c.id}`}
-              className="flex items-center justify-between px-4 py-3 bg-zinc-900 border border-zinc-800 rounded hover:border-zinc-700 transition-colors"
-            >
-              <div>
+            <div key={c.id} className="flex items-center gap-3 px-4 py-3 bg-zinc-900 border border-zinc-800 rounded hover:border-zinc-700 transition-colors">
+              <Link to={`/collections/${c.id}`} className="flex-1 flex items-center gap-3 min-w-0">
                 <span className="text-sm text-zinc-200">{c.name}</span>
-                <span className="ml-3 text-xs text-zinc-600">{TYPE_LABELS[c.type]}</span>
-              </div>
-              {c.is_public && <span className="text-xs text-zinc-600">public</span>}
-            </Link>
+                <span className="text-xs text-zinc-600">{TYPE_LABELS[c.type]}</span>
+                {c.is_public && <span className="text-xs text-zinc-600">public</span>}
+              </Link>
+              <button
+                onClick={() => setRemoveTarget(c)}
+                className="text-xs text-red-700 hover:text-red-400 transition-colors shrink-0"
+              >
+                Delete
+              </button>
+            </div>
           ))}
+        </div>
+      )}
+      {removeTarget && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 w-full max-w-sm">
+            <h3 className="text-white font-medium mb-2">Delete "{removeTarget.name}"?</h3>
+            <p className="text-zinc-400 text-sm mb-6">
+              This will permanently delete the collection and all its entries. The media items themselves will not be deleted.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => deleteCollection.mutate(removeTarget.id)}
+                disabled={deleteCollection.isPending}
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white rounded py-2 text-sm font-medium disabled:opacity-50 transition-colors"
+              >
+                {deleteCollection.isPending ? 'Deleting…' : 'Delete'}
+              </button>
+              <button
+                onClick={() => setRemoveTarget(null)}
+                className="flex-1 border border-zinc-700 text-zinc-400 rounded py-2 text-sm hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </PageShell>

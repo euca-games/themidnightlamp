@@ -52,6 +52,8 @@ export interface GameSearchResult {
   cover_url: string
   release_year: number
   platforms: string[]
+  summary: string
+  genres: string[]
 }
 
 export interface PaginatedMedia {

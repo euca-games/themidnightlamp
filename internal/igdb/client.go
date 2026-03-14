@@ -28,6 +28,8 @@ type GameResult struct {
 	CoverURL    string   `json:"cover_url"`
 	ReleaseYear int      `json:"release_year"`
 	Platforms   []string `json:"platforms"`
+	Summary     string   `json:"summary"`
+	Genres      []string `json:"genres"`
 }
 
 func NewClient(clientID, clientSecret string) *Client {
@@ -90,7 +92,7 @@ func (c *Client) SearchGames(ctx context.Context, q string, limit int) ([]GameRe
 	}
 
 	query := fmt.Sprintf(
-		`fields name, cover.image_id, first_release_date, platforms.name; search "%s"; limit %d; where cover != null & rating_count > 5;`,
+		`fields name, cover.image_id, first_release_date, platforms.name, summary, genres.name; search "%s"; limit %d; where cover != null & (rating_count > 5 | hypes > 5);`,
 		strings.ReplaceAll(q, `"`, `\"`), limit,
 	)
 
@@ -118,12 +120,16 @@ func (c *Client) SearchGames(ctx context.Context, q string, limit int) ([]GameRe
 		ID               int    `json:"id"`
 		Name             string `json:"name"`
 		FirstReleaseDate int64  `json:"first_release_date"`
+		Summary          string `json:"summary"`
 		Cover            *struct {
 			ImageID string `json:"image_id"`
 		} `json:"cover"`
 		Platforms []struct {
 			Name string `json:"name"`
 		} `json:"platforms"`
+		Genres []struct {
+			Name string `json:"name"`
+		} `json:"genres"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 		return nil, fmt.Errorf("igdb decode: %w", err)
@@ -141,8 +147,12 @@ func (c *Client) SearchGames(ctx context.Context, q string, limit int) ([]GameRe
 		if g.FirstReleaseDate != 0 {
 			result.ReleaseYear = time.Unix(g.FirstReleaseDate, 0).UTC().Year()
 		}
+		result.Summary = g.Summary
 		for _, p := range g.Platforms {
 			result.Platforms = append(result.Platforms, p.Name)
+		}
+		for _, genre := range g.Genres {
+			result.Genres = append(result.Genres, genre.Name)
 		}
 		results = append(results, result)
 	}

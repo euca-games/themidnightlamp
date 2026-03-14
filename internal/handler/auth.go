@@ -57,8 +57,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 type loginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Identifier string `json:"identifier"`
+	Password   string `json:"password"`
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +68,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.store.GetUserByEmail(r.Context(), req.Email)
+	user, err := h.store.GetUserByEmailOrUsername(r.Context(), req.Identifier)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			model.WriteError(w, &model.APIError{Code: http.StatusUnauthorized, Message: "invalid credentials"})

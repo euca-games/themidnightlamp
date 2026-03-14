@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useLogin } from '../hooks/useAuth'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const login = useLogin()
@@ -13,7 +13,7 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     try {
-      await login.mutateAsync({ email, password })
+      await login.mutateAsync({ identifier, password })
       navigate('/dashboard')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
@@ -30,11 +30,11 @@ export default function LoginPage() {
             <p className="text-red-400 text-sm text-center">{error}</p>
           )}
           <div>
-            <label className="block text-sm text-zinc-400 mb-1">Email</label>
+            <label className="block text-sm text-zinc-400 mb-1">Email or username</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               required
               className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-zinc-600"
             />

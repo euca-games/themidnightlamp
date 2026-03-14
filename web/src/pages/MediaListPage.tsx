@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import PageShell from '../components/layout/PageShell'
 import GameSearchInput from '../components/ui/GameSearchInput'
 import api from '../api/client'
-import type { MediaItem, Collection, PaginatedMedia, GameSearchResult, EntryWithMedia } from '../types/api'
+import type { MediaItem, Collection, GameSearchResult, EntryWithMedia } from '../types/api'
 
 const TYPE_LABELS: Record<string, string> = {
   game: 'Games',
@@ -13,39 +13,51 @@ const TYPE_LABELS: Record<string, string> = {
   tv_show: 'TV Shows',
 }
 
-const STATUS_TABS = [
-  { key: 'all', label: 'All' },
-  { key: 'want', label: 'Want to Play' },
-  { key: 'in_progress', label: 'Playing' },
-  { key: 'completed', label: 'Completed' },
-  { key: 'dropped', label: 'Dropped' },
-] as const
+const STATUS_LABELS: Record<string, { want: string; in_progress: string }> = {
+  game:    { want: 'Want to Play', in_progress: 'Playing' },
+  book:    { want: 'Want to Read', in_progress: 'Reading' },
+  movie:   { want: 'Want to Watch', in_progress: 'Watching' },
+  tv_show: { want: 'Want to Watch', in_progress: 'Watching' },
+}
 
-type StatusTab = typeof STATUS_TABS[number]['key']
+const STATUS_BADGE: Record<string, string> = {
+  want:        'bg-zinc-800 text-zinc-400',
+  in_progress: 'bg-blue-950 text-blue-400',
+  completed:   'bg-green-950 text-green-400',
+  dropped:     'bg-red-950 text-red-400',
+}
+
+function getStatusTabs(type: string) {
+  const l = STATUS_LABELS[type] ?? { want: 'Want', in_progress: 'In Progress' }
+  return [
+    { key: 'all',         label: 'All' },
+    { key: 'want',        label: l.want },
+    { key: 'in_progress', label: l.in_progress },
+    { key: 'completed',   label: 'Completed' },
+    { key: 'dropped',     label: 'Dropped' },
+  ] as const
+}
+
+type StatusTab = 'all' | 'want' | 'in_progress' | 'completed' | 'dropped'
 
 export default function MediaListPage() {
   const { type } = useParams<{ type: string }>()
-  const [q, setQ] = useState('')
   const [statusTab, setStatusTab] = useState<StatusTab>('all')
   const [showAdd, setShowAdd] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null)
   const [selectedCollection, setSelectedCollection] = useState('')
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; title: string } | null>(null)
   const qc = useQueryClient()
   const navigate = useNavigate()
 
-  const { data, isLoading } = useQuery<PaginatedMedia>({
-    queryKey: ['media', type, q],
-    queryFn: () =>
-      api.get('/media', { params: { type, q, limit: 50 } }).then((r) => r.data),
-    enabled: !!type && statusTab === 'all',
-  })
-
-  const { data: statusEntries = [], isLoading: statusLoading } = useQuery<EntryWithMedia[]>({
+  const { data: entries = [], isLoading } = useQuery<EntryWithMedia[]>({
     queryKey: ['entries', type, statusTab],
     queryFn: () =>
-      api.get('/entries', { params: { type, status: statusTab } }).then((r) => r.data),
-    enabled: !!type && statusTab !== 'all',
+      api.get('/entries', {
+        params: { type, status: statusTab === 'all' ? undefined : statusTab },
+      }).then((r) => r.data),
+    enabled: !!type,
   })
 
   const { data: collections = [] } = useQuery<Collection[]>({
@@ -57,7 +69,7 @@ export default function MediaListPage() {
     mutationFn: ({ title, metadata }: { title: string; metadata?: Record<string, unknown> }) =>
       api.post<MediaItem>('/media', { type, title, metadata }).then((r) => r.data),
     onSuccess: (item) => {
-      qc.invalidateQueries({ queryKey: ['media', type] })
+      qc.invalidateQueries({ queryKey: ['entries', type] })
       setShowAdd(false)
       setNewTitle('')
       setSelectedItem(item)
@@ -86,55 +98,55 @@ export default function MediaListPage() {
     },
   })
 
+  const removeMedia = useMutation({
+    mutationFn: (id: string) => api.delete(`/media/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['entries', type] })
+      setRemoveTarget(null)
+    },
+  })
+
   const label = TYPE_LABELS[type ?? ''] ?? type
   const isGame = type === 'game'
-  const loading = statusTab === 'all' ? isLoading : statusLoading
+  const statusTabs = getStatusTabs(type ?? '')
 
-  const items: { id: string; mediaId: string; title: string }[] =
-    statusTab === 'all'
-      ? (data?.items ?? []).map((m) => ({ id: m.id, mediaId: m.id, title: m.title }))
-      : statusEntries.map((e) => ({ id: e.id, mediaId: e.media_item_id, title: e.title }))
+  function statusLabel(status: string) {
+    const tab = statusTabs.find(t => t.key === status)
+    return tab?.label ?? status
+  }
 
   return (
     <PageShell title={label}>
       {/* Status tabs */}
-      {isGame && (
-        <div className="flex gap-1 mb-6 border-b border-zinc-800">
-          {STATUS_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setStatusTab(tab.key)}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                statusTab === tab.key
-                  ? 'border-white text-white'
-                  : 'border-transparent text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="flex gap-1 mb-6 border-b border-zinc-800">
+        {statusTabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setStatusTab(tab.key as StatusTab)}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              statusTab === tab.key
+                ? 'border-white text-white'
+                : 'border-transparent text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       <div className="flex items-center gap-3 mb-6">
         {isGame ? (
           <GameSearchInput onSelect={handleGameSelect} />
         ) : (
-          <input
-            type="text"
-            placeholder={`Search ${label?.toLowerCase()}…`}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="flex-1 bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600"
-          />
-        )}
-        {!isGame && (
-          <button
-            onClick={() => setShowAdd(true)}
-            className="px-4 py-2 bg-white text-zinc-950 rounded text-sm font-medium hover:bg-zinc-100 transition-colors"
-          >
-            + Add
-          </button>
+          <>
+            <div className="flex-1" />
+            <button
+              onClick={() => setShowAdd(true)}
+              className="px-4 py-2 bg-white text-zinc-950 rounded text-sm font-medium hover:bg-zinc-100 transition-colors"
+            >
+              + Add
+            </button>
+          </>
         )}
       </div>
 
@@ -162,39 +174,58 @@ export default function MediaListPage() {
         </div>
       )}
 
-      {loading ? (
+      {isLoading ? (
         <p className="text-zinc-500 text-sm">Loading…</p>
       ) : (
         <div className="space-y-1">
-          {items.map((item) => (
+          {entries.map((entry) => (
             <div
-              key={item.id}
-              className="flex items-center justify-between px-4 py-3 bg-zinc-900 border border-zinc-800 rounded hover:border-zinc-700 transition-colors"
+              key={entry.id}
+              className="flex items-center gap-3 px-4 py-3 bg-zinc-900 border border-zinc-800 rounded hover:border-zinc-700 transition-colors"
             >
               <button
-                onClick={() => navigate(`/media/${type}/${item.mediaId}`)}
-                className="text-sm text-zinc-200 hover:text-white text-left"
+                onClick={() => navigate(`/media/${type}/${entry.media_item_id}`)}
+                className="flex-1 text-sm text-zinc-200 hover:text-white text-left"
               >
-                {item.title}
+                {entry.title}
               </button>
+
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[entry.status] ?? 'bg-zinc-800 text-zinc-400'}`}>
+                {statusLabel(entry.status)}
+              </span>
+
+              {entry.rating != null ? (
+                <span className="text-xs text-zinc-400 w-8 text-right">{entry.rating}/5</span>
+              ) : (
+                <span className="text-xs text-zinc-700 w-8 text-right">—</span>
+              )}
+
               <button
-                onClick={() => setSelectedItem({ id: item.mediaId, type: type!, title: item.title, metadata: {}, created_at: '' })}
+                onClick={() => setSelectedItem({ id: entry.media_item_id, type: type!, title: entry.title, metadata: entry.metadata, created_at: '' })}
                 className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
               >
-                + Add to collection
+                + Collection
+              </button>
+
+              <button
+                onClick={() => setRemoveTarget({ id: entry.media_item_id, title: entry.title })}
+                className="text-xs text-red-700 hover:text-red-400 transition-colors"
+              >
+                Remove
               </button>
             </div>
           ))}
-          {items.length === 0 && (
+          {entries.length === 0 && (
             <p className="text-zinc-600 text-sm text-center py-12">
               {statusTab === 'all'
                 ? `Nothing here yet. Add your first ${label?.toLowerCase()}.`
-                : `No ${label?.toLowerCase()} marked as "${STATUS_TABS.find(t => t.key === statusTab)?.label}".`}
+                : `No ${label?.toLowerCase()} marked as "${statusTabs.find(t => t.key === statusTab)?.label}".`}
             </p>
           )}
         </div>
       )}
 
+      {/* Add to collection modal */}
       {selectedItem && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 w-full max-w-sm">
@@ -228,6 +259,34 @@ export default function MediaListPage() {
                 Add
               </button>
               <button onClick={() => setSelectedItem(null)} className="flex-1 border border-zinc-700 text-zinc-400 rounded py-2 text-sm hover:text-white">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove confirmation modal */}
+      {removeTarget && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 w-full max-w-sm">
+            <h3 className="text-white font-medium mb-2">Remove "{removeTarget.title}"?</h3>
+            <p className="text-zinc-400 text-sm mb-6">
+              This will permanently delete this item and remove it from every collection it's in.
+              This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => removeMedia.mutate(removeTarget.id)}
+                disabled={removeMedia.isPending}
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white rounded py-2 text-sm font-medium disabled:opacity-50 transition-colors"
+              >
+                {removeMedia.isPending ? 'Removing…' : 'Remove'}
+              </button>
+              <button
+                onClick={() => setRemoveTarget(null)}
+                className="flex-1 border border-zinc-700 text-zinc-400 rounded py-2 text-sm hover:text-white transition-colors"
+              >
                 Cancel
               </button>
             </div>

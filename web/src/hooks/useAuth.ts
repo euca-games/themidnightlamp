@@ -21,7 +21,7 @@ export function useLogin() {
   const setUser = useAuthStore((s) => s.setUser)
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { email: string; password: string }) =>
+    mutationFn: (data: { identifier: string; password: string }) =>
       api.post<User>('/auth/login', data).then((r) => r.data),
     onSuccess: (user) => {
       setUser(user)

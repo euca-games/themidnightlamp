@@ -49,6 +49,15 @@ func (s *Store) GetUserByEmail(ctx context.Context, email string) (*User, error)
 	return &u, err
 }
 
+func (s *Store) GetUserByEmailOrUsername(ctx context.Context, identifier string) (*User, error) {
+	var u User
+	err := s.pool.QueryRow(ctx,
+		`SELECT id, username, email, password_hash, created_at, updated_at FROM users WHERE email = $1 OR username = $1`,
+		identifier,
+	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt)
+	return &u, err
+}
+
 func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx,
