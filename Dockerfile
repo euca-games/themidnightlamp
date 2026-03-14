@@ -8,10 +8,10 @@ RUN npm run build
 
 ## Stage 2: build backend (with embedded frontend)
 FROM golang:1.23-alpine AS backend
-RUN apk add --no-cache git
+RUN apk add --no-cache git ca-certificates
+ENV GONOSUMDB=*
+ENV GOFLAGS=-mod=mod
 WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
 COPY . .
 COPY --from=frontend /app/web/dist ./cmd/server/web/dist
 RUN CGO_ENABLED=0 GOOS=linux go build -o /server ./cmd/server
