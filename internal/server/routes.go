@@ -29,7 +29,7 @@ func New(ctx context.Context, cfg *config.Config, s *store.Store, webFS embed.FS
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173", "https://themidnightlamp.com"},
+		AllowedOrigins:   []string{"http://localhost:5173", "https://themidnightlamp.com", "https://www.themidnightlamp.com"},
 		AllowedMethods:   []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
