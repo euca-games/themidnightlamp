@@ -201,7 +201,7 @@ export default function MediaListPage() {
               )}
 
               <button
-                onClick={() => setSelectedItem({ id: entry.media_item_id, type: type!, title: entry.title, metadata: entry.metadata, created_at: '' })}
+                onClick={() => setSelectedItem({ id: entry.media_item_id, type: type! as import('../types/api').MediaType, title: entry.title, metadata: entry.metadata, created_at: '' })}
                 className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
               >
                 + Collection
