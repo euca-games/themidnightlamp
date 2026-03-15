@@ -315,7 +315,7 @@ func (s *Store) GetEntry(ctx context.Context, id string) (*Entry, error) {
 
 func (s *Store) ListEntriesByCollection(ctx context.Context, collectionID string) ([]EntryWithMedia, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT ce.id, ce.collection_id, ce.media_item_id, ce.rating, ce.status, ce.notes, ce.started_at, ce.completed_at, ce.created_at, ce.updated_at, mi.title, mi.type, mi.metadata FROM collection_entries ce JOIN media_items mi ON mi.id = ce.media_item_id WHERE ce.collection_id = $1 ORDER BY ce.updated_at DESC`,
+		`SELECT ce.id, ce.collection_id, ce.media_item_id, ce.rating, ce.status, ce.notes, ce.started_at, ce.completed_at, ce.created_at, ce.updated_at, mi.title, mi.type, mi.metadata FROM collection_entries ce JOIN media_items mi ON mi.id = ce.media_item_id WHERE ce.collection_id = $1 ORDER BY mi.title ASC`,
 		collectionID,
 	)
 	if err != nil {
