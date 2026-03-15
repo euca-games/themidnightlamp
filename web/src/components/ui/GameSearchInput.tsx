@@ -4,15 +4,17 @@ import type { GameSearchResult } from '../../types/api'
 
 interface Props {
   onSelect: (result: GameSearchResult) => void
+  existingIgdbIds?: Set<number>
 }
 
-export default function GameSearchInput({ onSelect }: Props) {
+export default function GameSearchInput({ onSelect, existingIgdbIds }: Props) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<GameSearchResult[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const [preview, setPreview] = useState<GameSearchResult | null>(null)
+  const [summaryExpanded, setSummaryExpanded] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const search = useCallback(async (q: string) => {
@@ -60,14 +62,17 @@ export default function GameSearchInput({ onSelect }: Props) {
     } else if (e.key === 'Enter' && activeIndex >= 0) {
       e.preventDefault()
       setPreview(results[activeIndex])
+      setSummaryExpanded(false)
       setOpen(false)
     } else if (e.key === 'Escape') {
       setOpen(false)
     }
   }
 
+  const alreadyAdded = preview ? existingIgdbIds?.has(preview.igdb_id) ?? false : false
+
   function handleAdd() {
-    if (!preview) return
+    if (!preview || alreadyAdded) return
     onSelect(preview)
     setPreview(null)
     setQuery('')
@@ -100,6 +105,7 @@ export default function GameSearchInput({ onSelect }: Props) {
                   onMouseDown={(e) => {
                     e.preventDefault()
                     setPreview(r)
+                    setSummaryExpanded(false)
                     setOpen(false)
                   }}
                   onMouseEnter={() => setActiveIndex(i)}
@@ -111,8 +117,13 @@ export default function GameSearchInput({ onSelect }: Props) {
                       <div className="w-full h-full bg-zinc-700" />
                     )}
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm text-white truncate">{r.title}</p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-white truncate">{r.title}</p>
+                      {existingIgdbIds?.has(r.igdb_id) && (
+                        <span className="flex-shrink-0 text-xs text-zinc-500">Added</span>
+                      )}
+                    </div>
                     {r.release_year > 0 && (
                       <p className="text-xs text-zinc-500">{r.release_year}</p>
                     )}
@@ -142,14 +153,13 @@ export default function GameSearchInput({ onSelect }: Props) {
               <div className="flex-1 min-w-0">
                 <h2 className="text-white font-semibold text-lg leading-snug mb-1">{preview.title}</h2>
 
-                <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
-                  {preview.release_year > 0 && (
-                    <span className="text-zinc-400 text-sm">{preview.release_year}</span>
-                  )}
-                  {preview.platforms.length > 0 && (
-                    <span className="text-zinc-500 text-sm truncate">{preview.platforms.slice(0, 3).join(', ')}{preview.platforms.length > 3 ? '…' : ''}</span>
-                  )}
-                </div>
+                {preview.release_year > 0 && (
+                  <p className="text-zinc-400 text-sm mb-2">{preview.release_year}</p>
+                )}
+
+                {preview.platforms.length > 0 && (
+                  <p className="text-zinc-500 text-sm mb-2">{preview.platforms.join(', ')}</p>
+                )}
 
                 {preview.genres.length > 0 && (
                   <div className="flex flex-wrap gap-1 mb-3">
@@ -158,20 +168,43 @@ export default function GameSearchInput({ onSelect }: Props) {
                     ))}
                   </div>
                 )}
-
-                {preview.summary && (
-                  <p className="text-zinc-400 text-sm leading-relaxed line-clamp-4">{preview.summary}</p>
-                )}
               </div>
             </div>
 
+            {preview.summary && (
+              <div className="px-6 pb-4">
+                <p className={`text-zinc-400 text-sm leading-relaxed ${summaryExpanded ? '' : 'line-clamp-3'}`}>
+                  {preview.summary}
+                </p>
+                <button
+                  onClick={() => setSummaryExpanded(!summaryExpanded)}
+                  className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors mt-1 flex items-center gap-1"
+                >
+                  {summaryExpanded ? 'See less' : 'See more'}
+                  <svg
+                    className={`w-3 h-3 transition-transform ${summaryExpanded ? 'rotate-180' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+            )}
+
             <div className="flex gap-3 px-6 pb-6">
-              <button
-                onClick={handleAdd}
-                className="flex-1 bg-white text-zinc-950 rounded-lg py-2 text-sm font-medium hover:bg-zinc-100 transition-colors"
-              >
-                Add to my list
-              </button>
+              {alreadyAdded ? (
+                <span className="flex-1 text-center text-sm text-zinc-500 py-2">Already in your list</span>
+              ) : (
+                <button
+                  onClick={handleAdd}
+                  className="flex-1 bg-white text-zinc-950 rounded-lg py-2 text-sm font-medium hover:bg-zinc-100 transition-colors"
+                >
+                  Add to my list
+                </button>
+              )}
               <button
                 onClick={() => setPreview(null)}
                 className="flex-1 border border-zinc-700 text-zinc-400 rounded-lg py-2 text-sm hover:text-white transition-colors"

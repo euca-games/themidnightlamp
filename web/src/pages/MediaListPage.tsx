@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import PageShell from '../components/layout/PageShell'
 import GameSearchInput from '../components/ui/GameSearchInput'
+import MediaDetailModal from './MediaDetailPage'
 import api from '../api/client'
 import type { MediaItem, Collection, GameSearchResult, EntryWithMedia } from '../types/api'
 
@@ -40,6 +41,12 @@ function getStatusTabs(type: string) {
 
 type StatusTab = 'all' | 'want' | 'in_progress' | 'completed' | 'dropped'
 
+function thumbUrl(metadata: Record<string, unknown>): string | null {
+  const url = metadata?.cover_url
+  if (typeof url !== 'string' || !url) return null
+  return url.replace('t_cover_big', 't_thumb')
+}
+
 export default function MediaListPage() {
   const { type } = useParams<{ type: string }>()
   const [statusTab, setStatusTab] = useState<StatusTab>('all')
@@ -48,8 +55,8 @@ export default function MediaListPage() {
   const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null)
   const [selectedCollection, setSelectedCollection] = useState('')
   const [removeTarget, setRemoveTarget] = useState<{ id: string; title: string } | null>(null)
+  const [detailEntry, setDetailEntry] = useState<EntryWithMedia | null>(null)
   const qc = useQueryClient()
-  const navigate = useNavigate()
 
   const { data: entries = [], isLoading } = useQuery<EntryWithMedia[]>({
     queryKey: ['entries', type, statusTab],
@@ -84,6 +91,8 @@ export default function MediaListPage() {
         cover_url: result.cover_url,
         release_year: result.release_year,
         platforms: result.platforms,
+        genres: result.genres,
+        summary: result.summary,
       },
     })
   }
@@ -105,6 +114,12 @@ export default function MediaListPage() {
       setRemoveTarget(null)
     },
   })
+
+  const existingIgdbIds = new Set(
+    entries
+      .map((e) => e.metadata?.igdb_id as number | undefined)
+      .filter((id): id is number => id != null),
+  )
 
   const label = TYPE_LABELS[type ?? ''] ?? type
   const isGame = type === 'game'
@@ -136,7 +151,7 @@ export default function MediaListPage() {
 
       <div className="flex items-center gap-3 mb-6">
         {isGame ? (
-          <GameSearchInput onSelect={handleGameSelect} />
+          <GameSearchInput onSelect={handleGameSelect} existingIgdbIds={existingIgdbIds} />
         ) : (
           <>
             <div className="flex-1" />
@@ -183,8 +198,16 @@ export default function MediaListPage() {
               key={entry.id}
               className="flex items-center gap-3 px-4 py-3 bg-zinc-900 border border-zinc-800 rounded hover:border-zinc-700 transition-colors"
             >
+              <div className="flex-shrink-0 w-8 h-11 bg-zinc-800 rounded overflow-hidden">
+                {thumbUrl(entry.metadata) ? (
+                  <img src={thumbUrl(entry.metadata)!} alt="" className="w-full h-full object-cover" loading="lazy" />
+                ) : (
+                  <div className="w-full h-full" />
+                )}
+              </div>
+
               <button
-                onClick={() => navigate(`/media/${type}/${entry.media_item_id}`)}
+                onClick={() => setDetailEntry(entry)}
                 className="flex-1 text-sm text-zinc-200 hover:text-white text-left"
               >
                 {entry.title}
@@ -292,6 +315,14 @@ export default function MediaListPage() {
             </div>
           </div>
         </div>
+      )}
+      {/* Detail modal */}
+      {detailEntry && (
+        <MediaDetailModal
+          entry={detailEntry}
+          type={type!}
+          onClose={() => setDetailEntry(null)}
+        />
       )}
     </PageShell>
   )
