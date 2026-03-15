@@ -13,7 +13,7 @@ ENV GONOSUMDB=*
 ENV GOFLAGS=-mod=mod
 WORKDIR /app
 COPY . .
-COPY --from=frontend /app/web/dist ./cmd/server/web/dist
+COPY --from=frontend /app/cmd/server/web/dist ./cmd/server/web/dist
 RUN CGO_ENABLED=0 GOOS=linux go build -o /server ./cmd/server
 
 ## Stage 3: minimal runtime image
