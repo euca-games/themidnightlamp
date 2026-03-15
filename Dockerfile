@@ -14,7 +14,8 @@ ENV GOFLAGS=-mod=mod
 WORKDIR /app
 COPY . .
 COPY --from=frontend /app/cmd/server/web/dist ./cmd/server/web/dist
-RUN CGO_ENABLED=0 GOOS=linux go build -o /server ./cmd/server
+RUN sed -i 's/^go 1\.[0-9]*/go 1.23/' go.mod && \
+    CGO_ENABLED=0 GOOS=linux go build -o /server ./cmd/server
 
 ## Stage 3: minimal runtime image
 FROM alpine:3.19
