@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 interface Props {
   value: number | null
-  onChange?: (v: number) => void
+  onChange?: (v: number | null) => void
   readonly?: boolean
 }
 
@@ -39,7 +39,8 @@ export default function StarRating({ value, onChange, readonly }: Props) {
               if (readonly) return
               const rect = e.currentTarget.getBoundingClientRect()
               const x = e.clientX - rect.left
-              onChange?.(snap(x < rect.width / 2 ? star - 0.5 : star))
+              const next = snap(x < rect.width / 2 ? star - 0.5 : star)
+              onChange?.(next === value ? null : next)
             }}
           >
             {/* base empty star */}

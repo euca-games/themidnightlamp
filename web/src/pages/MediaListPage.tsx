@@ -196,7 +196,8 @@ export default function MediaListPage() {
           {entries.map((entry) => (
             <div
               key={entry.id}
-              className="flex items-center gap-3 px-4 py-3 bg-zinc-900 border border-zinc-800 rounded hover:border-zinc-700 transition-colors"
+              onClick={() => setDetailEntry(entry)}
+              className="flex items-center gap-3 px-4 py-3 bg-zinc-900 border border-zinc-800 rounded hover:border-zinc-700 transition-colors cursor-pointer"
             >
               <div className="flex-shrink-0 w-8 h-11 bg-zinc-800 rounded overflow-hidden">
                 {thumbUrl(entry.metadata) ? (
@@ -206,12 +207,9 @@ export default function MediaListPage() {
                 )}
               </div>
 
-              <button
-                onClick={() => setDetailEntry(entry)}
-                className="flex-1 text-sm text-zinc-200 hover:text-white text-left"
-              >
+              <span className="flex-1 text-sm text-zinc-200 hover:text-white text-left">
                 {entry.title}
-              </button>
+              </span>
 
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[entry.status] ?? 'bg-zinc-800 text-zinc-400'}`}>
                 {statusLabel(entry.status)}
@@ -224,14 +222,14 @@ export default function MediaListPage() {
               )}
 
               <button
-                onClick={() => setSelectedItem({ id: entry.media_item_id, type: type! as import('../types/api').MediaType, title: entry.title, metadata: entry.metadata, created_at: '' })}
+                onClick={(e) => { e.stopPropagation(); setSelectedItem({ id: entry.media_item_id, type: type! as import('../types/api').MediaType, title: entry.title, metadata: entry.metadata, created_at: '' }) }}
                 className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
               >
                 + Collection
               </button>
 
               <button
-                onClick={() => setRemoveTarget({ id: entry.media_item_id, title: entry.title })}
+                onClick={(e) => { e.stopPropagation(); setRemoveTarget({ id: entry.media_item_id, title: entry.title }) }}
                 className="text-xs text-red-700 hover:text-red-400 transition-colors"
               >
                 Remove

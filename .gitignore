@@ -14,3 +14,4 @@ cmd/server/web/
 
 # OS
 .DS_Store
+uploads/

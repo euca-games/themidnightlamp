@@ -9,6 +9,7 @@ import MediaListPage from './pages/MediaListPage'
 import CollectionsPage from './pages/CollectionsPage'
 import CollectionPage from './pages/CollectionPage'
 import ProfilePage from './pages/ProfilePage'
+import PublicProfilePage from './pages/PublicProfilePage'
 
 const queryClient = new QueryClient()
 
@@ -42,6 +43,8 @@ function AppRoutes() {
       <Route path="/collections" element={<AuthGate><CollectionsPage /></AuthGate>} />
       <Route path="/collections/:id" element={<AuthGate><CollectionPage /></AuthGate>} />
       <Route path="/profile" element={<AuthGate><ProfilePage /></AuthGate>} />
+      <Route path="/u/:username" element={<PublicProfilePage />} />
+      <Route path="/u/:username/collections/:id" element={<PublicProfilePage />} />
     </Routes>
   )
 }

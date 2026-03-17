@@ -2,6 +2,8 @@ export interface User {
   id: string
   username: string
   email: string
+  bio: string | null
+  avatar_url: string | null
   created_at: string
 }
 
@@ -34,6 +36,7 @@ export interface Entry {
   rating: number | null
   status: EntryStatus
   notes: string | null
+  review: string | null
   started_at: string | null
   completed_at: string | null
   created_at: string
@@ -61,4 +64,12 @@ export interface PaginatedMedia {
   total: number
   page: number
   limit: number
+}
+
+export interface PublicProfile {
+  username: string
+  bio: string | null
+  avatar_url: string | null
+  created_at: string
+  collections: Collection[]
 }

@@ -8,6 +8,7 @@ import (
 
 	"themidnightlamp/internal/auth"
 	"themidnightlamp/internal/model"
+	"themidnightlamp/internal/sanitize"
 	"themidnightlamp/internal/store"
 
 	"github.com/go-chi/chi/v5"
@@ -66,12 +67,64 @@ func (h *EntriesHandler) ListByCollection(w http.ResponseWriter, r *http.Request
 }
 
 type entryRequest struct {
-	MediaItemID string   `json:"media_item_id"`
-	Rating      *float64 `json:"rating"`
-	Status      string   `json:"status"`
-	Notes       *string  `json:"notes"`
-	StartedAt   *string  `json:"started_at"`
-	CompletedAt *string  `json:"completed_at"`
+	MediaItemID string           `json:"media_item_id"`
+	Rating      *float64         `json:"rating"`
+	RatingRaw   *json.RawMessage `json:"-"`
+	Status      string           `json:"status"`
+	Notes       *string          `json:"notes"`
+	Review      *string          `json:"review"`
+	StartedAt   *string          `json:"started_at"`
+	CompletedAt *string          `json:"completed_at"`
+}
+
+func decodeEntryRequest(r *http.Request) (entryRequest, error) {
+	var raw map[string]json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+		return entryRequest{}, err
+	}
+
+	var req entryRequest
+	if v, ok := raw["media_item_id"]; ok {
+		json.Unmarshal(v, &req.MediaItemID)
+	}
+	if v, ok := raw["rating"]; ok {
+		req.RatingRaw = &v
+		json.Unmarshal(v, &req.Rating)
+	}
+	if v, ok := raw["status"]; ok {
+		json.Unmarshal(v, &req.Status)
+	}
+	if v, ok := raw["notes"]; ok {
+		json.Unmarshal(v, &req.Notes)
+	}
+	if v, ok := raw["review"]; ok {
+		json.Unmarshal(v, &req.Review)
+	}
+	if v, ok := raw["started_at"]; ok {
+		json.Unmarshal(v, &req.StartedAt)
+	}
+	if v, ok := raw["completed_at"]; ok {
+		json.Unmarshal(v, &req.CompletedAt)
+	}
+	return req, nil
+}
+
+func sanitizeEntryRequest(req *entryRequest) *model.APIError {
+	if req.Notes != nil && *req.Notes != "" {
+		cleaned, ok := sanitize.Text(*req.Notes, 1000)
+		if !ok {
+			return &model.APIError{Code: http.StatusBadRequest, Message: "notes contain invalid content or exceed 1000 characters"}
+		}
+		req.Notes = &cleaned
+	}
+	if req.Review != nil && *req.Review != "" {
+		cleaned, ok := sanitize.Text(*req.Review, 5000)
+		if !ok {
+			return &model.APIError{Code: http.StatusBadRequest, Message: "review contains invalid content or exceeds 5000 characters"}
+		}
+		req.Review = &cleaned
+	}
+	return nil
 }
 
 func (h *EntriesHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -92,8 +145,8 @@ func (h *EntriesHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req entryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	req, decErr := decodeEntryRequest(r)
+	if decErr != nil {
 		model.WriteError(w, model.ErrBadRequest)
 		return
 	}
@@ -105,8 +158,13 @@ func (h *EntriesHandler) Create(w http.ResponseWriter, r *http.Request) {
 		req.Status = "want"
 	}
 
+	if apiErr := sanitizeEntryRequest(&req); apiErr != nil {
+		model.WriteError(w, apiErr)
+		return
+	}
+
 	startedAt, completedAt := parseDates(req.StartedAt, req.CompletedAt)
-	entry, err := h.store.CreateEntry(r.Context(), collectionID, req.MediaItemID, req.Rating, req.Status, req.Notes, startedAt, completedAt)
+	entry, err := h.store.CreateEntry(r.Context(), collectionID, req.MediaItemID, req.Rating, req.Status, req.Notes, req.Review, startedAt, completedAt)
 	if err != nil {
 		model.WriteError(w, &model.APIError{Code: http.StatusConflict, Message: "item already in collection"})
 		return
@@ -138,14 +196,22 @@ func (h *EntriesHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req entryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	req, decErr := decodeEntryRequest(r)
+	if decErr != nil {
 		model.WriteError(w, model.ErrBadRequest)
 		return
 	}
 
+	if apiErr := sanitizeEntryRequest(&req); apiErr != nil {
+		model.WriteError(w, apiErr)
+		return
+	}
+
+	// clearRating: the frontend explicitly sent "rating": null (key present, value null)
+	clearRating := req.RatingRaw != nil && req.Rating == nil
+
 	startedAt, completedAt := parseDates(req.StartedAt, req.CompletedAt)
-	updated, err := h.store.UpdateEntry(r.Context(), entryID, req.Rating, req.Status, req.Notes, startedAt, completedAt)
+	updated, err := h.store.UpdateEntry(r.Context(), entryID, req.Rating, req.Status, req.Notes, req.Review, startedAt, completedAt, clearRating)
 	if err != nil {
 		model.WriteError(w, model.ErrInternalServer)
 		return

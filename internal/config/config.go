@@ -13,6 +13,12 @@ type Config struct {
 	GoEnv              string
 	IGDBClientID       string
 	IGDBClientSecret   string
+	UploadDir          string
+	R2AccountID        string
+	R2AccessKey        string
+	R2SecretKey        string
+	R2Bucket           string
+	R2PublicURL        string
 }
 
 func Load() (*Config, error) {
@@ -24,6 +30,12 @@ func Load() (*Config, error) {
 		GoEnv:            getEnvOrDefault("GO_ENV", "development"),
 		IGDBClientID:     os.Getenv("IGDB_CLIENT_ID"),
 		IGDBClientSecret: os.Getenv("IGDB_CLIENT_SECRET"),
+		UploadDir:        getEnvOrDefault("UPLOAD_DIR", "uploads"),
+		R2AccountID:      os.Getenv("R2_ACCOUNT_ID"),
+		R2AccessKey:      os.Getenv("R2_ACCESS_KEY"),
+		R2SecretKey:      os.Getenv("R2_SECRET_KEY"),
+		R2Bucket:         os.Getenv("R2_BUCKET"),
+		R2PublicURL:      os.Getenv("R2_PUBLIC_URL"),
 	}
 
 	if cfg.DatabaseURL == "" {

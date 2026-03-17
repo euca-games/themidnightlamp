@@ -11,6 +11,7 @@ import (
 	"themidnightlamp/internal/config"
 	"themidnightlamp/internal/handler"
 	"themidnightlamp/internal/igdb"
+	"themidnightlamp/internal/storage"
 	"themidnightlamp/internal/store"
 
 	"github.com/go-chi/chi/v5"
@@ -36,7 +37,11 @@ func New(ctx context.Context, cfg *config.Config, s *store.Store, webFS embed.FS
 	}))
 
 	authH := handler.NewAuthHandler(s, cfg.JWTSecret, cfg.JWTRefreshSecret)
-	usersH := handler.NewUsersHandler(s)
+	var r2 *storage.R2Client
+	if cfg.R2AccountID != "" && cfg.R2AccessKey != "" && cfg.R2SecretKey != "" {
+		r2 = storage.NewR2Client(cfg.R2AccountID, cfg.R2AccessKey, cfg.R2SecretKey, cfg.R2Bucket, cfg.R2PublicURL)
+	}
+	usersH := handler.NewUsersHandler(s, cfg.UploadDir, r2)
 	mediaH := handler.NewMediaHandler(s)
 	colsH := handler.NewCollectionsHandler(s)
 	entriesH := handler.NewEntriesHandler(s)
@@ -56,6 +61,7 @@ func New(ctx context.Context, cfg *config.Config, s *store.Store, webFS embed.FS
 		r.Post("/auth/refresh", authH.Refresh)
 
 		// Public user profiles
+		r.Get("/users/{username}/profile", usersH.PublicProfile)
 		r.Get("/users/{username}/collections", colsH.PublicByUsername)
 		r.Get("/users/{username}/collections/{id}", colsH.PublicOne)
 
@@ -65,12 +71,14 @@ func New(ctx context.Context, cfg *config.Config, s *store.Store, webFS embed.FS
 
 			r.Get("/users/me", usersH.Me)
 			r.Patch("/users/me", usersH.UpdateMe)
+			r.Post("/users/me/avatar", usersH.UploadAvatar)
 
 			r.Get("/search/games", searchH.SearchGames)
 			r.Get("/entries", entriesH.ListByUser)
 
 			r.Get("/media", mediaH.List)
 			r.Get("/media/{id}", mediaH.Get)
+			r.Get("/media/{id}/collections", usersH.MediaCollections)
 			r.Post("/media", mediaH.Create)
 			r.Patch("/media/{id}", mediaH.Update)
 			r.Delete("/media/{id}", mediaH.Delete)
@@ -87,6 +95,9 @@ func New(ctx context.Context, cfg *config.Config, s *store.Store, webFS embed.FS
 			r.Delete("/collections/{id}/entries/{entryId}", entriesH.Delete)
 		})
 	})
+
+	// Serve uploaded files
+	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(cfg.UploadDir))))
 
 	// Serve SPA
 	distFS, _ := fs.Sub(webFS, "web/dist")

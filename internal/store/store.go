@@ -27,6 +27,8 @@ type User struct {
 	Username     string    `json:"username"`
 	Email        string    `json:"email"`
 	PasswordHash string    `json:"-"`
+	Bio          *string   `json:"bio"`
+	AvatarURL    *string   `json:"avatar_url"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -34,54 +36,54 @@ type User struct {
 func (s *Store) CreateUser(ctx context.Context, username, email, passwordHash string) (*User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx,
-		`INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, password_hash, created_at, updated_at`,
+		`INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, password_hash, bio, avatar_url, created_at, updated_at`,
 		username, email, passwordHash,
-	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt)
+	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Bio, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt)
 	return &u, err
 }
 
 func (s *Store) GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, username, email, password_hash, created_at, updated_at FROM users WHERE email = $1`,
+		`SELECT id, username, email, password_hash, bio, avatar_url, created_at, updated_at FROM users WHERE email = $1`,
 		email,
-	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt)
+	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Bio, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt)
 	return &u, err
 }
 
 func (s *Store) GetUserByEmailOrUsername(ctx context.Context, identifier string) (*User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, username, email, password_hash, created_at, updated_at FROM users WHERE email = $1 OR username = $1`,
+		`SELECT id, username, email, password_hash, bio, avatar_url, created_at, updated_at FROM users WHERE email = $1 OR username = $1`,
 		identifier,
-	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt)
+	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Bio, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt)
 	return &u, err
 }
 
 func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, username, email, password_hash, created_at, updated_at FROM users WHERE username = $1`,
+		`SELECT id, username, email, password_hash, bio, avatar_url, created_at, updated_at FROM users WHERE username = $1`,
 		username,
-	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt)
+	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Bio, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt)
 	return &u, err
 }
 
 func (s *Store) GetUserByID(ctx context.Context, id string) (*User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, username, email, password_hash, created_at, updated_at FROM users WHERE id = $1`,
+		`SELECT id, username, email, password_hash, bio, avatar_url, created_at, updated_at FROM users WHERE id = $1`,
 		id,
-	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt)
+	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Bio, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt)
 	return &u, err
 }
 
-func (s *Store) UpdateUser(ctx context.Context, id, username, email string) (*User, error) {
+func (s *Store) UpdateUser(ctx context.Context, id, username, email string, bio, avatarURL *string) (*User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx,
-		`UPDATE users SET username = COALESCE(NULLIF($2, ''), username), email = COALESCE(NULLIF($3, ''), email), updated_at = now() WHERE id = $1 RETURNING id, username, email, password_hash, created_at, updated_at`,
-		id, username, email,
-	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt)
+		`UPDATE users SET username = COALESCE(NULLIF($2, ''), username), email = COALESCE(NULLIF($3, ''), email), bio = $4, avatar_url = $5, updated_at = now() WHERE id = $1 RETURNING id, username, email, password_hash, bio, avatar_url, created_at, updated_at`,
+		id, username, email, bio, avatarURL,
+	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Bio, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt)
 	return &u, err
 }
 
@@ -282,6 +284,7 @@ type Entry struct {
 	Rating       *float64   `json:"rating"`
 	Status       string     `json:"status"`
 	Notes        *string    `json:"notes"`
+	Review       *string    `json:"review"`
 	StartedAt    *time.Time `json:"started_at"`
 	CompletedAt  *time.Time `json:"completed_at"`
 	CreatedAt    time.Time  `json:"created_at"`
@@ -295,27 +298,27 @@ type EntryWithMedia struct {
 	Metadata json.RawMessage `json:"metadata"`
 }
 
-func (s *Store) CreateEntry(ctx context.Context, collectionID, mediaItemID string, rating *float64, status string, notes *string, startedAt, completedAt *time.Time) (*Entry, error) {
+func (s *Store) CreateEntry(ctx context.Context, collectionID, mediaItemID string, rating *float64, status string, notes, review *string, startedAt, completedAt *time.Time) (*Entry, error) {
 	var e Entry
 	err := s.pool.QueryRow(ctx,
-		`INSERT INTO collection_entries (collection_id, media_item_id, rating, status, notes, started_at, completed_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, collection_id, media_item_id, rating, status, notes, started_at, completed_at, created_at, updated_at`,
-		collectionID, mediaItemID, rating, status, notes, startedAt, completedAt,
-	).Scan(&e.ID, &e.CollectionID, &e.MediaItemID, &e.Rating, &e.Status, &e.Notes, &e.StartedAt, &e.CompletedAt, &e.CreatedAt, &e.UpdatedAt)
+		`INSERT INTO collection_entries (collection_id, media_item_id, rating, status, notes, review, started_at, completed_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, collection_id, media_item_id, rating, status, notes, review, started_at, completed_at, created_at, updated_at`,
+		collectionID, mediaItemID, rating, status, notes, review, startedAt, completedAt,
+	).Scan(&e.ID, &e.CollectionID, &e.MediaItemID, &e.Rating, &e.Status, &e.Notes, &e.Review, &e.StartedAt, &e.CompletedAt, &e.CreatedAt, &e.UpdatedAt)
 	return &e, err
 }
 
 func (s *Store) GetEntry(ctx context.Context, id string) (*Entry, error) {
 	var e Entry
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, collection_id, media_item_id, rating, status, notes, started_at, completed_at, created_at, updated_at FROM collection_entries WHERE id = $1`,
+		`SELECT id, collection_id, media_item_id, rating, status, notes, review, started_at, completed_at, created_at, updated_at FROM collection_entries WHERE id = $1`,
 		id,
-	).Scan(&e.ID, &e.CollectionID, &e.MediaItemID, &e.Rating, &e.Status, &e.Notes, &e.StartedAt, &e.CompletedAt, &e.CreatedAt, &e.UpdatedAt)
+	).Scan(&e.ID, &e.CollectionID, &e.MediaItemID, &e.Rating, &e.Status, &e.Notes, &e.Review, &e.StartedAt, &e.CompletedAt, &e.CreatedAt, &e.UpdatedAt)
 	return &e, err
 }
 
 func (s *Store) ListEntriesByCollection(ctx context.Context, collectionID string) ([]EntryWithMedia, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT ce.id, ce.collection_id, ce.media_item_id, ce.rating, ce.status, ce.notes, ce.started_at, ce.completed_at, ce.created_at, ce.updated_at, mi.title, mi.type, mi.metadata FROM collection_entries ce JOIN media_items mi ON mi.id = ce.media_item_id WHERE ce.collection_id = $1 ORDER BY mi.title ASC`,
+		`SELECT ce.id, ce.collection_id, ce.media_item_id, ce.rating, ce.status, ce.notes, ce.review, ce.started_at, ce.completed_at, ce.created_at, ce.updated_at, mi.title, mi.type, mi.metadata FROM collection_entries ce JOIN media_items mi ON mi.id = ce.media_item_id WHERE ce.collection_id = $1 ORDER BY mi.title ASC`,
 		collectionID,
 	)
 	if err != nil {
@@ -326,7 +329,7 @@ func (s *Store) ListEntriesByCollection(ctx context.Context, collectionID string
 	var entries []EntryWithMedia
 	for rows.Next() {
 		var e EntryWithMedia
-		if err := rows.Scan(&e.ID, &e.CollectionID, &e.MediaItemID, &e.Rating, &e.Status, &e.Notes, &e.StartedAt, &e.CompletedAt, &e.CreatedAt, &e.UpdatedAt, &e.Title, &e.Type, &e.Metadata); err != nil {
+		if err := rows.Scan(&e.ID, &e.CollectionID, &e.MediaItemID, &e.Rating, &e.Status, &e.Notes, &e.Review, &e.StartedAt, &e.CompletedAt, &e.CreatedAt, &e.UpdatedAt, &e.Title, &e.Type, &e.Metadata); err != nil {
 			return nil, err
 		}
 		entries = append(entries, e)
@@ -345,7 +348,7 @@ func (s *Store) ListEntriesByUser(ctx context.Context, userID, mediaType, status
 	rows, err := s.pool.Query(ctx,
 		`SELECT DISTINCT ON (mi.id)
 		   ce.id, ce.collection_id, ce.media_item_id, ce.rating, ce.status,
-		   ce.notes, ce.started_at, ce.completed_at, ce.created_at, ce.updated_at,
+		   ce.notes, ce.review, ce.started_at, ce.completed_at, ce.created_at, ce.updated_at,
 		   mi.title, mi.type, mi.metadata
 		 FROM collection_entries ce
 		 JOIN media_items mi ON mi.id = ce.media_item_id
@@ -364,7 +367,7 @@ func (s *Store) ListEntriesByUser(ctx context.Context, userID, mediaType, status
 	var entries []EntryWithMedia
 	for rows.Next() {
 		var e EntryWithMedia
-		if err := rows.Scan(&e.ID, &e.CollectionID, &e.MediaItemID, &e.Rating, &e.Status, &e.Notes, &e.StartedAt, &e.CompletedAt, &e.CreatedAt, &e.UpdatedAt, &e.Title, &e.Type, &e.Metadata); err != nil {
+		if err := rows.Scan(&e.ID, &e.CollectionID, &e.MediaItemID, &e.Rating, &e.Status, &e.Notes, &e.Review, &e.StartedAt, &e.CompletedAt, &e.CreatedAt, &e.UpdatedAt, &e.Title, &e.Type, &e.Metadata); err != nil {
 			return nil, err
 		}
 		entries = append(entries, e)
@@ -372,18 +375,86 @@ func (s *Store) ListEntriesByUser(ctx context.Context, userID, mediaType, status
 	return entries, nil
 }
 
-func (s *Store) UpdateEntry(ctx context.Context, id string, rating *float64, status string, notes *string, startedAt, completedAt *time.Time) (*Entry, error) {
+func (s *Store) UpdateEntry(ctx context.Context, id string, rating *float64, status string, notes, review *string, startedAt, completedAt *time.Time, clearRating bool) (*Entry, error) {
 	var e Entry
 	err := s.pool.QueryRow(ctx,
-		`UPDATE collection_entries SET rating = $2, status = COALESCE(NULLIF($3, ''), status), notes = $4, started_at = $5, completed_at = $6, updated_at = now() WHERE id = $1 RETURNING id, collection_id, media_item_id, rating, status, notes, started_at, completed_at, created_at, updated_at`,
-		id, rating, status, notes, startedAt, completedAt,
-	).Scan(&e.ID, &e.CollectionID, &e.MediaItemID, &e.Rating, &e.Status, &e.Notes, &e.StartedAt, &e.CompletedAt, &e.CreatedAt, &e.UpdatedAt)
+		`UPDATE collection_entries SET
+		   rating = CASE WHEN $8::boolean THEN NULL ELSE COALESCE($2, rating) END,
+		   status = COALESCE(NULLIF($3, ''), status),
+		   notes = COALESCE($4, notes),
+		   review = COALESCE($5, review),
+		   started_at = COALESCE($6, started_at),
+		   completed_at = COALESCE($7, completed_at),
+		   updated_at = now()
+		 WHERE id = $1
+		 RETURNING id, collection_id, media_item_id, rating, status, notes, review, started_at, completed_at, created_at, updated_at`,
+		id, rating, status, notes, review, startedAt, completedAt, clearRating,
+	).Scan(&e.ID, &e.CollectionID, &e.MediaItemID, &e.Rating, &e.Status, &e.Notes, &e.Review, &e.StartedAt, &e.CompletedAt, &e.CreatedAt, &e.UpdatedAt)
 	return &e, err
 }
 
 func (s *Store) DeleteEntry(ctx context.Context, id string) error {
 	_, err := s.pool.Exec(ctx, `DELETE FROM collection_entries WHERE id = $1`, id)
 	return err
+}
+
+// --- Media → Collections lookup ---
+
+func (s *Store) GetCollectionsForMediaItem(ctx context.Context, userID, mediaItemID string) ([]Collection, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT c.id, c.user_id, c.name, c.type, c.description, c.is_public, c.created_at, c.updated_at
+		 FROM collections c
+		 JOIN collection_entries ce ON ce.collection_id = c.id
+		 WHERE c.user_id = $1 AND ce.media_item_id = $2
+		 ORDER BY c.name ASC`,
+		userID, mediaItemID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var cols []Collection
+	for rows.Next() {
+		var c Collection
+		if err := rows.Scan(&c.ID, &c.UserID, &c.Name, &c.Type, &c.Description, &c.IsPublic, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			return nil, err
+		}
+		cols = append(cols, c)
+	}
+	return cols, nil
+}
+
+// --- Public Profile ---
+
+type PublicProfile struct {
+	Username    string       `json:"username"`
+	Bio         *string      `json:"bio"`
+	AvatarURL   *string      `json:"avatar_url"`
+	CreatedAt   time.Time    `json:"created_at"`
+	Collections []Collection `json:"collections"`
+}
+
+func (s *Store) GetPublicProfile(ctx context.Context, username string) (*PublicProfile, error) {
+	var p PublicProfile
+	var userID uuid.UUID
+	err := s.pool.QueryRow(ctx,
+		`SELECT id, username, bio, avatar_url, created_at FROM users WHERE username = $1`,
+		username,
+	).Scan(&userID, &p.Username, &p.Bio, &p.AvatarURL, &p.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	cols, err := s.GetPublicCollectionsByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+	if cols == nil {
+		cols = []Collection{}
+	}
+	p.Collections = cols
+	return &p, nil
 }
 
 // --- Refresh Tokens ---
